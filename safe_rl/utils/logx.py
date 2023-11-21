@@ -7,7 +7,8 @@ import json
 import joblib
 import shutil
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import os.path as osp, time, atexit, os
 from safe_rl.utils.mpi_tools import proc_id, mpi_statistics_scalar
 from safe_rl.utils.serialization_utils import convert_json
@@ -221,7 +222,8 @@ class Logger:
                 # simple_save refuses to be useful if fpath already exists,
                 # so just delete fpath if it's there.
                 shutil.rmtree(fpath)
-            tf.saved_model.simple_save(export_dir=fpath, **self.tf_saver_elements)
+            tf.saved_model.simple_save(
+                    export_dir=fpath, **self.tf_saver_elements)
             joblib.dump(self.tf_saver_info, osp.join(fpath, 'model_info.pkl'))
     
     def dump_tabular(self):

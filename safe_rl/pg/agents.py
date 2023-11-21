@@ -84,6 +84,11 @@ class Agent:
         return self.params.get('reward_penalized', False)
 
     @property
+    def weighted(self):
+        # JAG: No constraints for weighted so far.
+        return self.params.get('weighted', False)
+
+    @property
     def save_penalty(self):
         # Essentially an override for CPO so it can save a penalty coefficient
         # derived in its inner-loop optimization process.

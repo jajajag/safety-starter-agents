@@ -1,5 +1,6 @@
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import gym
 import time
 import safe_rl.pg.trust_region as tro
@@ -73,10 +74,12 @@ def run_polopt_agent(env_fn,
     ac_kwargs['action_space'] = env.action_space
 
     # Inputs to computation graph from environment spaces
-    x_ph, a_ph = placeholders_from_spaces(env.observation_space, env.action_space)
+    x_ph, a_ph = placeholders_from_spaces(
+            env.observation_space, env.action_space)
 
     # Inputs to computation graph for batch data
-    adv_ph, cadv_ph, ret_ph, cret_ph, logp_old_ph = placeholders(*(None for _ in range(5)))
+    adv_ph, cadv_ph, ret_ph, cret_ph, logp_old_ph = placeholders(
+            *(None for _ in range(5)))
 
     # Inputs to computation graph for special purposes
     surr_cost_rescale_ph = tf.placeholder(tf.float32, shape=())
@@ -97,13 +100,15 @@ def run_polopt_agent(env_fn,
                           pi_info=pi_info)
 
     # If agent is reward penalized, it doesn't use a separate value function
-    # for costs and we don't need to include it in get_action_ops; otherwise we do.
+    # for costs and we don't need to include it in get_action_ops; otherwise we
+    # do.
     if not(agent.reward_penalized):
         get_action_ops['vc'] = vc
 
     # Count variables
     var_counts = tuple(count_vars(scope) for scope in ['pi', 'vf', 'vc'])
-    logger.log('\nNumber of parameters: \t pi: %d, \t v: %d, \t vc: %d\n'%var_counts)
+    logger.log('\nNumber of parameters: \t pi: %d, \t v: %d, \t vc: %d\n' \
+            % var_counts)
 
     # Make a sample estimate for entropy to use as sanity check
     approx_ent = tf.reduce_mean(-logp)
@@ -150,7 +155,8 @@ def run_polopt_agent(env_fn,
             penalty_loss = -penalty_param * (cur_cost_ph - cost_lim)
         else:
             penalty_loss = -penalty * (cur_cost_ph - cost_lim)
-        train_penalty = MpiAdamOptimizer(learning_rate=penalty_lr).minimize(penalty_loss)
+        train_penalty = MpiAdamOptimizer(
+                learning_rate=penalty_lr).minimize(penalty_loss)
 
 
     #=========================================================================#
@@ -232,6 +238,10 @@ def run_polopt_agent(env_fn,
     #=========================================================================#
 
     # Value losses
+    # JAG: Weighted reward
+    #if agent.weighted:
+    #    ret_ph = ret_ph * tf.math.exp(1.0) / (tf.math.exp(1.0) - 1) \
+    #            * (1 - tf.math.exp((vc - 10 + cret_ph) / 10))
     v_loss = tf.reduce_mean((ret_ph - v)**2)
     vc_loss = tf.reduce_mean((cret_ph - vc)**2)
 
@@ -257,7 +267,9 @@ def run_polopt_agent(env_fn,
     sess.run(sync_all_params())
 
     # Setup model saving
-    logger.setup_tf_saver(sess, inputs={'x': x_ph}, outputs={'pi': pi, 'v': v, 'vc': vc})
+    logger.setup_tf_saver(sess, 
+                          inputs={'x': x_ph}, 
+                          outputs={'pi': pi, 'v': v, 'vc': vc})
 
 
     #=========================================================================#
@@ -328,7 +340,8 @@ def run_polopt_agent(env_fn,
         deltas = dict()
         for k in post_update_measures:
             if k in pre_update_measures:
-                deltas['Delta'+k] = post_update_measures[k] - pre_update_measures[k]
+                deltas['Delta'+k] = post_update_measures[k] \
+                        - pre_update_measures[k]
         logger.store(KL=post_update_measures['KL'], **deltas)
 
 
@@ -359,7 +372,8 @@ def run_polopt_agent(env_fn,
                                        feed_dict={x_ph: o[np.newaxis]})
             a = get_action_outs['pi']
             v_t = get_action_outs['v']
-            vc_t = get_action_outs.get('vc', 0)  # Agent may not use cost value func
+            # Agent may not use cost value func
+            vc_t = get_action_outs.get('vc', 0)  
             logp_t = get_action_outs['logp_pi']
             pi_info_t = get_action_outs['pi_info']
 
@@ -377,6 +391,12 @@ def run_polopt_agent(env_fn,
                 r_total = r - cur_penalty * c
                 r_total = r_total / (1 + cur_penalty)
                 buf.store(o, a, r_total, v_t, 0, 0, logp_t, pi_info_t)
+            # JAG: Weighted reward
+            elif agent.weighted:
+                penalty = np.exp((vc_t - cost_lim + cum_cost) / cost_lim)
+                penalty = 100 if penalty > 100 else penalty
+                r_total = r * np.e / (np.e - 1) * (1 - penalty)
+                buf.store(o, a, r_total, v_t, c, vc_t, logp_t, pi_info_t)
             else:
                 buf.store(o, a, r, v_t, c, vc_t, logp_t, pi_info_t)
             logger.store(VVals=v_t, CostVVals=vc_t)
@@ -389,7 +409,8 @@ def run_polopt_agent(env_fn,
             terminal = d or (ep_len == max_ep_len)
             if terminal or (t==local_steps_per_epoch-1):
 
-                # If trajectory didn't reach terminal state, bootstrap value target(s)
+                # If trajectory didn't reach terminal state, bootstrap value
+                # target(s)
                 if d and not(ep_len == max_ep_len):
                     # Note: we do not count env time out as true terminal state
                     last_val, last_cval = 0, 0
@@ -399,17 +420,20 @@ def run_polopt_agent(env_fn,
                         last_val = sess.run(v, feed_dict=feed_dict)
                         last_cval = 0
                     else:
-                        last_val, last_cval = sess.run([v, vc], feed_dict=feed_dict)
+                        last_val, last_cval = sess.run(
+                                [v, vc], feed_dict=feed_dict)
                 buf.finish_path(last_val, last_cval)
 
                 # Only save EpRet / EpLen if trajectory finished
                 if terminal:
                     logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=ep_cost)
                 else:
-                    print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
+                    print('Warning: trajectory cut off by epoch at %d steps.' \
+                            % ep_len)
 
                 # Reset environment
-                o, r, d, c, ep_ret, ep_len, ep_cost = env.reset(), 0, False, 0, 0, 0, 0
+                o, r, d, c, ep_ret, ep_len, ep_cost = env.reset(), 0, False, \
+                        0, 0, 0, 0
 
         # Save model
         if (epoch % save_freq == 0) or (epoch == epochs-1):
@@ -455,7 +479,8 @@ def run_polopt_agent(env_fn,
         logger.log_tabular('LossV', average_only=True)
         logger.log_tabular('DeltaLossV', average_only=True)
 
-        # Vc loss and change, if applicable (reward_penalized agents don't use vc)
+        # Vc loss and change, if applicable (reward_penalized agents don't use
+        # vc)
         if not(agent.reward_penalized):
             logger.log_tabular('LossVC', average_only=True)
             logger.log_tabular('DeltaLossVC', average_only=True)
@@ -503,13 +528,15 @@ if __name__ == '__main__':
     parser.add_argument('--objective_penalized', action='store_true')
     parser.add_argument('--learn_penalty', action='store_true')
     parser.add_argument('--penalty_param_loss', action='store_true')
+    parser.add_argument('--weighted', action='store_true')
     parser.add_argument('--entreg', type=float, default=0.)
     args = parser.parse_args()
 
     try:
         import safety_gym
     except:
-        print('Make sure to install Safety Gym to use constrained RL environments.')
+        print('Make sure to install Safety Gym to use constrained RL ' \
+                'environments.')
 
     mpi_fork(args.cpu)  # run parallel code with mpi
 
@@ -521,7 +548,8 @@ if __name__ == '__main__':
     agent_kwargs = dict(reward_penalized=args.reward_penalized,
                         objective_penalized=args.objective_penalized,
                         learn_penalty=args.learn_penalty,
-                        penalty_param_loss=args.penalty_param_loss)
+                        penalty_param_loss=args.penalty_param_loss,
+                        weighted=args.weighted)
     if args.agent=='ppo':
         agent = PPOAgent(**agent_kwargs)
     elif args.agent=='trpo':

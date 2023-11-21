@@ -1,5 +1,6 @@
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from gym.spaces import Box, Discrete
 from safe_rl.pg.utils import combined_shape, EPS
 
@@ -170,13 +171,16 @@ def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh,
         policy = mlp_categorical_policy
 
     with tf.variable_scope('pi'):
-        policy_outs = policy(x, a, hidden_sizes, activation, output_activation, action_space)
+        policy_outs = policy(x, a, hidden_sizes, activation, output_activation,
+                             action_space)
         pi, logp, logp_pi, pi_info, pi_info_phs, d_kl, ent = policy_outs
 
     with tf.variable_scope('vf'):
-        v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
+        v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), 
+                       axis=1)
 
     with tf.variable_scope('vc'):
-        vc = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
+        vc = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), 
+                        axis=1)
 
     return pi, logp, logp_pi, pi_info, pi_info_phs, d_kl, ent, v, vc

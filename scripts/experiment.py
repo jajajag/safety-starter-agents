@@ -11,7 +11,9 @@ def main(robot, task, algo, seed, exp_name, cpu):
     # Verify experiment
     robot_list = ['point', 'car', 'doggo']
     task_list = ['goal1', 'goal2', 'button1', 'button2', 'push1', 'push2']
-    algo_list = ['ppo', 'ppo_lagrangian', 'trpo', 'trpo_lagrangian', 'cpo']
+    algo_list = ['ppo', 'ppo_lagrangian', 'ppo_weighted', 
+                 'trpo', 'trpo_lagrangian', 'trpo_weighted',
+                 'cpo', 'sac']
 
     algo = algo.lower()
     task = task.capitalize()

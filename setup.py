@@ -14,10 +14,10 @@ setup(
         'gym~=0.15.3',
         'joblib==0.14.0',
         'matplotlib==3.1.1',
-        'mpi4py==3.0.2',
-        'mujoco_py==2.0.2.7',
+        'mpi4py==3.1.3',
+        'mujoco_py==2.0.2.8',
         'numpy~=1.17.4',
         'seaborn==0.8.1',
-        'tensorflow==1.13.1',
+        'tensorflow==2.7.4',
     ],
 )
