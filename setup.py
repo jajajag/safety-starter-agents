@@ -19,5 +19,6 @@ setup(
         'numpy~=1.17.4',
         'seaborn==0.8.1',
         'tensorflow==2.7.4',
+        'Cython<3',
     ],
 )
