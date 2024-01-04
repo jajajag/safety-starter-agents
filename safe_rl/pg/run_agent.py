@@ -393,9 +393,11 @@ def run_polopt_agent(env_fn,
                 buf.store(o, a, r_total, v_t, 0, 0, logp_t, pi_info_t)
             # JAG: Weighted reward
             elif agent.weighted:
-                penalty = np.exp((vc_t - cost_lim + cum_cost) / cost_lim)
-                penalty = 100 if penalty > 100 else penalty
-                r_total = r * np.e / (np.e - 1) * (1 - penalty)
+                vc_t_cp = cost_lim if vc_t > cost_lim else vc_t
+                cum_cost_cp = cost_lim if cum_cost > cost_lim else cum_cost
+                cost_lim_cp = cost_lim * 2
+                penalty = np.power(np.e, vc_t_cp - cost_lim_cp + cum_cost_cp)
+                r_total = r * (1 - penalty)
                 buf.store(o, a, r_total, v_t, c, vc_t, logp_t, pi_info_t)
             else:
                 buf.store(o, a, r, v_t, c, vc_t, logp_t, pi_info_t)
